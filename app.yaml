@@ -1,5 +1,5 @@
-application: bloog
-version: 1
+application: notdot-blog
+version: live
 runtime: python
 api_version: 1
 
