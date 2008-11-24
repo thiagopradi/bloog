@@ -1,0 +1,17 @@
+<li id="comment-{{ comment.key }}" class="alt item indent{{ comment.get_indentation }}">
+    <cite>
+        {% if use_gravatars %}
+        <img class="gravatar" src="http://www.gravatar.com/avatar/{{comment.email|gravatar}}?s=32&r=g&d=identicon" alt="" />
+        {% endif %}
+        {{ comment.name|default:"Anonymous"}} says: <br />
+        <span class="comment-data"><a href="#comment-{{comment.key}}" title="">{{comment.published_date}}</a></span>
+    </cite>
+    <div class="comment-text">
+        {{ comment.body }}
+    </div>
+    {% if allow_comments %}
+    <p class="post_meta">
+        <a class="replybtn" title="Reply to Comment" href="#comment-{{ comment.key }}">Reply</a>
+    </p>
+    {% endif %}
+</li>

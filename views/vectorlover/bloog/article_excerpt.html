@@ -1,0 +1,15 @@
+<h2><a href="/{{article.permalink}}" title="{{article.title}}">{{article.title}}</a></h2>
+<p class="post-info">
+    {% if article.tags %}
+        Filed under
+        {% for tag in article.tags %}
+        <a href="/tag/{{tag|urlencode}}">{{tag}}</a>{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+</p>
+<p>{{article.html|truncatewords_html:68}}</p>
+<p class="post-footer">
+    <a href="/{{article.permalink}}" class="readmore">Read More</a> |
+    <a href="/{{article.permalink}}" class="comments">Comments ({{article.num_comments}})</a> |
+    <span class="date">{{article.published.date}}</span>
+</p>

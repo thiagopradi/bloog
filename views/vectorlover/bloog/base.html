@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <meta http-equiv="Content-Type" content="{{ blog.html_type }}; charset={{ blog.charset }}" />
+        <title> {{ title }}</title>
+        <meta name="generator" content="Bloogle {{ bloogle_version }}" />
+        <link rel="stylesheet" href="{{"style.css"|find_static_file}}" type="text/css" media="screen" />
+        <link rel="alternate" type="application/rss+xml" title="{{ blog.title }} RSS Feed" 
+              href="{{ blog.root_url }}{{ blog.master_atom_url }}" />
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.5.2/build/assets/skins/sam/skin.css" />
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.5.2/build/container/assets/skins/sam/container.css" />
+        {% block head %}
+        {% endblock %}
+    </head>
+    <body class="yui-skin-sam">
+    <div id="wrap">
+        <div id="header">
+            <h1 id="logo-text"><a href="/">{{ blog.title }}</a></h1>
+            <p id="slogan">{{ blog.description }}</p>
+            <div id="top-menu">
+                <p>
+                    <a href="{{ blog.master_atom_url }}" title="Subscribe to the main Atom feed">atom</a> |
+                    <a href="/contact" title="Send me a note">contact</a> |
+                    {% if user %}
+                    <a href="{{ logout_url }}" title="logout">logout</a>
+                    {% else %}
+                    <a href="{{ login_url }}" title="login">login</a>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <div id="nav" class="navbar">
+            <ul>
+                <li><a href="/" title="Return to the frontpage">Home</a></li>
+                <li><a id="archiveLink" href="#" title="View the archives">Archives</a></li>
+                {% for link in navlinks %}
+                <li><a href="{{ link.url }}" title="{{ link.description }}">{{ link.title }}</a></li>
+                {% endfor %}
+                <li><a href="#main" title="Skip to content">Main</a></li>
+            </ul>
+        </div>
+        <div id="archives" class="navbar" style="display: none;">
+            <ul class="fix">
+                <li><a href="/2008">2008</a></li>
+                <li><a href="/2007">2007</a></li>
+                <li><a href="/2006">2006</a></li>
+                <li><a href="/2005">2005</a></li>
+                <li><a href="/2004">2004</a></li>
+            </ul>
+        </div>
+        <div id="content">
+            <!-- First column: Main content -->
+            {% block first_column %}
+            <div id="mainCol"><a name="main"></a>
+            {% for article in articles %}
+                {% include 'article_excerpt.html' %}
+            {% endfor %}
+            {% if not articles %}
+                {% include 'bloog_intro.html' %}
+            {% endif %}
+            {% include 'pager.html' %}
+            </div>
+            {% endblock %}
+
+            <!-- Second column: Show search, selected internal links, etc. -->
+            {% block second_column %}
+            <div id="sidebar">
+                <h3>Search</h3>
+                {% block search %}
+                <form class="mainform" method="get" id="qsearch" action="/search">
+                    <p>
+                        <input class="tbox" type="text" value="{{ searchterm }}" name="s" id="s" />
+                        <input class="btn" id="searchsubmit" type="image" src="{{"images/btn_search.gif"|find_static_file}}" alt="Search" />
+                    </p>
+                </form>
+                {% endblock %}
+
+                {% block tags %}
+                <h3>Tags</h3>
+                {% if blog_tags %}
+                <ul>
+                    {% for tag in blog_tags %}
+                        {% ifnotequal tag.count 0 %}
+                        <li><a href="/tag/{{ tag.name|urlencode }}">{{ tag.name }}</a>
+                        ({{ tag.count }})</li>
+                        {% endifnotequal %}
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    No posts have been tagged yet.
+                {% endif %}
+                {% endblock %}
+
+                {% block extra_panel %}
+                {% endblock %}
+
+                {% if user_is_admin %}
+                <h3>Administrative Panel</h3>
+                <ul class="sidemenu">
+                    <li><a id="newblog" href="#">New Blog Entry</a></li>
+                    <li><a id="newarticle" href="#">New Article</a>
+                        - unsyndicated<br />(e.g., about page)</li>
+                    <li><a id="openshell" href="/admin/shell">Open Shell</a></li>
+                    <li><a href="/admin/cache_stats">Memcached Stats</a></li>
+                    <li><a href="/admin/timings">Timing Stats</a></li>
+                </ul>
+                {% endif %}
+
+                {% block featuredPages1 %}
+                <h3 title="{{featuredMyPages.description}}">{{ featuredMyPages.title }}</h3>
+                <ul class="sidemenu">
+                    {% for entry in featuredMyPages.entries %}
+                    <li>
+                        <a href="{{ entry.url }}">{{ entry.title }}</a>
+                        - {{ entry.description }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endblock %}
+
+                {% block featuredPages2 %}
+                <h3 title="{{featuredOthersPages.description}}">{{ featuredOthersPages.title }}</h3>
+                <ul class="sidemenu">
+                    {% for entry in featuredMyPages.entries %}
+                    <li>
+                        <a href="{{ entry.url }}">{{ entry.title }}</a>
+                        - {{ entry.description }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endblock %}
+
+                {% block subscribe %}
+                <h3>Subscribe</h3>
+                <p>
+                    Stay updated on my meandering thoughts &amp; activities via Atom syndication.
+                </p>
+                <ul>
+                    <li>
+                        <a href="{{ blog.master_atom_url }}" title="Full content Atom feed">Atom feed</a>
+                        - Full content
+                    </li>
+                </ul>
+                {% endblock %}
+            </div>
+            {% endblock %}
+        </div>
+        <div id="footer">
+            <p><a href="http://bloog.billkatz.com">Bloog</a> for 
+                <a href="http://code.google.com/appengine/">Google App Engine</a> is available at
+                <a href="http://github.com/DocSavage/bloog">GitHub</a> under an MIT license.</p>
+            <p>Design by : <a href="http://www.styleshout.com/">styleshout</a> | 
+            Valid <a href="http://validator.w3.org/check?uri=referer">XHTML</a> | 
+            <a href="http://jigsaw.w3.org/css-validator/check/referer">CSS</a></p>
+            <p>Cache debugging: Page was rendered {% now "M j, H:i:s" %}.
+            {% if user %}
+              ({{ user.nickname }})
+            {% endif %}
+            {% if user_is_admin %}
+              User is administrator.
+            {% endif %}
+            </p>
+        </div>
+
+        <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+        <script type="text/javascript" src="{{"js/bloog_base.js"|find_static_file}}"></script>
+
+        {% if user_is_admin %}
+        {% include "form_editor.html" %}
+        {% endif %}
+
+        {% block end_body %}
+        {% endblock %}
+    </div>
+    </body>
+</html>
