@@ -8,7 +8,7 @@
 {% endif %}
 
 {% block first_column %}
-{% if two_columns %}
+{% if is_big %}
 <div id="twoCol" class-"fix"><a name="main"></a>
 {% else %}
 <div id="mainCol" class="fix"><a name="main"></a>
@@ -91,7 +91,7 @@ dp.SyntaxHighlighter.HighlightAll('code');
 {% endblock %}
 
 {% block third_column %}
-{% if not two_columns %}
+{% if not is_big %}
 {% include 'ads.html' %}
 {% endif %}
 {% endblock %}

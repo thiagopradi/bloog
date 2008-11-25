@@ -57,7 +57,6 @@ class Article(search.SearchableModel):
     num_comments = db.IntegerProperty(default=0)
     # Use keys instead of db.Category for consolidation of tag names
     tags = db.StringListProperty(default=[])
-    two_columns = db.BooleanProperty()
     allow_comments = db.BooleanProperty()
     # A list of languages for code embedded in article.
     # This lets us choose the proper javascript for pretty viewing.
