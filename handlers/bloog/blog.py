@@ -485,9 +485,9 @@ class BlogEntryHandler(restful.Controller):
 
     @authorized.role("admin")
     def delete(self, year, month, perm_stem):
+        permalink = '/%s/%s/%s' % (year, month, perm_stem)
         logging.debug("Deleting blog entry %s", permalink)
-        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
-                                                      (year, month, perm_stem))
+        article = models.blog.Article.get_by_key_name(permalink)
         for key in article.tags:
             models.blog.Tag.get_or_insert(key).counter.decrement()
         article.delete()
