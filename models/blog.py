@@ -31,7 +31,7 @@ from models import search
 
 class Article(search.SearchableModel):
     unsearchable_properties = ['legacy_id', 'article_type', 
-                               'excerpt', 'html', 'format', 'tag_keys']
+                               'excerpt', 'html', 'format']
     json_does_not_include = ['assoc_dict']
 
     # Useful for aliasing of old urls
@@ -57,7 +57,6 @@ class Article(search.SearchableModel):
     num_comments = db.IntegerProperty(default=0)
     # Use keys instead of db.Category for consolidation of tag names
     tags = db.StringListProperty(default=[])
-    tag_keys = db.ListProperty(db.Key, default=[])
     two_columns = db.BooleanProperty()
     allow_comments = db.BooleanProperty()
     # A list of languages for code embedded in article.

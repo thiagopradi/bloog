@@ -98,10 +98,6 @@ def get_format(format_string):
         format_string = 'html'
     return format_string
 
-def get_tag_key(tag_name):
-    obj = models.blog.Tag.get_or_insert(tag_name)
-    return obj.key()
-
 def process_tag(tag_name, tags):
     # Check tag_name against all 'name' values in tags and coerce
     tag_name = tag_name.strip()
@@ -175,18 +171,15 @@ def process_article_edit(handler, permalink):
          ('html', get_html, 'body', 'format')])
 
     if property_hash:
-        if 'tags' in property_hash:
-            property_hash['tag_keys'] = [get_tag_key(name) 
-                                         for name in property_hash['tags']]
         article = models.blog.Article.get_by_key_name('/' + permalink)
-        before_tags = set(article.tag_keys)
+        before_tags = set(article.tags)
         for key,value in property_hash.iteritems():
             setattr(article, key, value)
-        after_tags = set(article.tag_keys)
+        after_tags = set(article.tags)
         for removed_tag in before_tags - after_tags:
-            db.get(removed_tag).counter.decrement()
+            models.blog.Tag.get_or_insert(removed_tag).counter.decrement()
         for added_tag in after_tags - before_tags:
-            db.get(added_tag).counter.increment()
+            models.blog.Tag.get_or_insert(added_tag).counter.increment()
         process_embedded_code(article)
         article.put()
         restful.send_successful_response(handler, '/' + article.permalink)
@@ -207,9 +200,6 @@ def process_article_submission(handler, article_type):
          ('permalink', permalink_funcs[article_type], 'title', 'published')])
 
     if property_hash:
-        if 'tags' in property_hash:
-            property_hash['tag_keys'] = [get_tag_key(name) 
-                                         for name in property_hash['tags']]
         property_hash['format'] = 'html'   # For now, convert all to HTML
         property_hash['article_type'] = article_type
         article = models.blog.Article(**property_hash)
@@ -221,8 +211,8 @@ def process_article_submission(handler, article_type):
         # Ensure there is a year entity for this entry's year
         models.blog.Year.get_or_insert('Y%d' % (article.published.year,))
         # Update tags
-        for key in article.tag_keys:
-            db.get(key).counter.increment()
+        for key in article.tags:
+            models.blog.Tag.get_or_insert(key).counter.increment()
         do_sitemap_ping()
         restful.send_successful_response(handler, '/' + article.permalink)
         view.invalidate_cache()
@@ -460,8 +450,8 @@ class ArticleHandler(restful.Controller):
             delete_entity(query)
         else:
             article = models.blog.Article.get_by_key_name('/'+path)
-            for key in article.tag_keys:
-                db.get(key).counter.decrement()
+            for key in article.tags:
+                models.blog.Tag.get_or_insert(key).counter.decrement()
             article.delete()
             view.invalidate_cache()
             restful.send_successful_response(self, "/")
@@ -498,8 +488,8 @@ class BlogEntryHandler(restful.Controller):
         logging.debug("Deleting blog entry %s", permalink)
         article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
                                                       (year, month, perm_stem))
-        for key in article.tag_keys:
-            db.get(key).counter.decrement()
+        for key in article.tags:
+            models.blog.Tag.get_or_insert(key).counter.decrement()
         article.delete()
         view.invalidate_cache()
         restful.send_successful_response(self, "/")
