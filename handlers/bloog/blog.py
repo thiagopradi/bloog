@@ -178,7 +178,7 @@ def process_article_edit(handler, permalink):
         if 'tags' in property_hash:
             property_hash['tag_keys'] = [get_tag_key(name) 
                                          for name in property_hash['tags']]
-        article = db.Query(models.blog.Article).filter('permalink =', permalink).get()
+        article = models.blog.Article.get_by_key_name('/' + permalink)
         before_tags = set(article.tag_keys)
         for key,value in property_hash.iteritems():
             setattr(article, key, value)
@@ -398,9 +398,7 @@ class ArticleHandler(restful.Controller):
                 return
 
         # Check undated pages
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', path).get()
-
+        article = models.blog.Article.get_by_key_name('/' + path)
         if not article:
             # This lets you map arbitrary URL patterns like /node/3
             #  to article properties, e.g. 3 -> legacy_id property
@@ -413,7 +411,7 @@ class ArticleHandler(restful.Controller):
 
     @restful.methods_via_query_allowed    
     def post(self, path):
-        article = db.Query(models.blog.Article).filter('permalink =', path).get()
+        article = models.blog.Article.get_by_key_name('/'+path)
         process_comment_submission(self, article)
 
     @authorized.role("admin")
@@ -458,8 +456,7 @@ class ArticleHandler(restful.Controller):
             query = models.blog.Tag.all()
             delete_entity(query)
         else:
-            article = db.Query(models.blog.Article). \
-                         filter('permalink =', path).get()
+            article = models.blog.Article.get_by_key_name('/'+path)
             for key in article.tag_keys:
                 db.get(key).counter.decrement()
             article.delete()
@@ -472,17 +469,15 @@ class BlogEntryHandler(restful.Controller):
         logging.debug("BlogEntryHandler#get for year %s, "
                       "month %s, and perm_link %s", 
                       year, month, perm_stem)
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', 
-                            year + '/' + month + '/' + perm_stem).get()
+        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
+                                                      (year, month, perm_stem))
         render_article(self, article)
 
     @restful.methods_via_query_allowed    
     def post(self, year, month, perm_stem):
         logging.debug("Adding comment for blog entry %s", self.request.path)
-        permalink = year + '/' + month + '/' + perm_stem
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', permalink).get()
+        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
+                                                      (year, month, perm_stem))
         if article:
             process_comment_submission(self, article)
         else:
@@ -491,16 +486,15 @@ class BlogEntryHandler(restful.Controller):
 
     @authorized.role("admin")
     def put(self, year, month, perm_stem):
-        permalink = year + '/' + month + '/' + perm_stem
+        permalink = '%s/%s/%s' % (year, month, perm_stem)
         logging.debug("BlogEntryHandler#put")
         process_article_edit(handler = self, permalink = permalink)
 
     @authorized.role("admin")
     def delete(self, year, month, perm_stem):
-        permalink = year + '/' + month + '/' + perm_stem
         logging.debug("Deleting blog entry %s", permalink)
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', permalink).get()
+        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
+                                                      (year, month, perm_stem))
         for key in article.tag_keys:
             db.get(key).counter.decrement()
         article.delete()

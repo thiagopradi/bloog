@@ -29,25 +29,11 @@ import config
 import models
 from models import search
 
-# Handle generation of thread strings
-def get_thread_string(article, cur_thread_string):
-    min_str = cur_thread_string + '000'
-    max_str = cur_thread_string + '999'
-    q = db.GqlQuery("SELECT * FROM Comment " +
-                    "WHERE article = :1 " +
-                    "AND thread >= :2 AND thread <= :3",
-                    article, min_str, max_str)
-    num_comments = q.count(999)
-    if num_comments > 998:
-        return None         # Only allow 999 comments on each tree level
-    return cur_thread_string + "%03d" % (num_comments + 1)
-
 class Article(search.SearchableModel):
-    unsearchable_properties = ['permalink', 'legacy_id', 'article_type', 
+    unsearchable_properties = ['legacy_id', 'article_type', 
                                'excerpt', 'html', 'format', 'tag_keys']
     json_does_not_include = ['assoc_dict']
 
-    permalink = db.StringProperty(required=True)
     # Useful for aliasing of old urls
     legacy_id = db.StringProperty()
     title = db.StringProperty(required=True)
@@ -78,6 +64,12 @@ class Article(search.SearchableModel):
     # This lets us choose the proper javascript for pretty viewing.
     embedded_code = db.StringListProperty()
 
+    def __init__(self, permalink=None, **kwargs):
+        if permalink:
+            super(Article, self).__init__(key_name='/'+permalink, **kwargs)
+        else:
+            super(Article, self).__init__(**kwargs)
+
     def get_comments(self):
         """Return comments lexicographically sorted on thread string"""
         q = db.GqlQuery("SELECT * FROM Comment " +
@@ -98,6 +90,10 @@ class Article(search.SearchableModel):
     def get_associated_data(self):
         import pickle
         return pickle.loads(self.assoc_dict)
+
+    @property
+    def permalink(self):
+        return self.key().name()[1:]
 
     def full_permalink(self):
         return config.BLOG['root_url'] + '/' + self.permalink
