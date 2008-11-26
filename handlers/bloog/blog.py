@@ -50,6 +50,8 @@ from google.appengine.ext import webapp
 from google.appengine.api import users
 from google.appengine.ext import db
 from google.appengine.ext.webapp import template
+from google.appengine.api import mail
+from google.appengine.api import urlfetch
 
 from handlers import restful
 from utils import authorized
@@ -96,10 +98,6 @@ def get_format(format_string):
         format_string = 'html'
     return format_string
 
-def get_tag_key(tag_name):
-    obj = models.blog.Tag.get_or_insert(tag_name)
-    return obj.key()
-
 def process_tag(tag_name, tags):
     # Check tag_name against all 'name' values in tags and coerce
     tag_name = tag_name.strip()
@@ -143,7 +141,13 @@ def get_sanitizer_func(handler, **kwargs):
     logging.debug("Content-type: %s", handler.request.headers['CONTENT_TYPE'])
     logging.debug("In sanitizer: %s", kwlist)
     return lambda html : sanitizer.sanitize_html(html, **kwlist)
-        
+
+def do_sitemap_ping():
+    form_fields = { "sitemap": "%s/sitemap.xml" % (config.BLOG['root_url'],) }
+    urlfetch.fetch(url="http://www.google.com/webmasters/tools/ping",
+                   payload=urllib.urlencode(form_fields),
+                   method=urlfetch.GET)
+
 def process_embedded_code(article):
     # TODO -- Check for embedded code, escape opening triangular brackets
     # within code, and set article embedded_code strings so we can
@@ -167,18 +171,15 @@ def process_article_edit(handler, permalink):
          ('html', get_html, 'body', 'format')])
 
     if property_hash:
-        if 'tags' in property_hash:
-            property_hash['tag_keys'] = [get_tag_key(name) 
-                                         for name in property_hash['tags']]
-        article = db.Query(models.blog.Article).filter('permalink =', permalink).get()
-        before_tags = set(article.tag_keys)
+        article = models.blog.Article.get_by_key_name('/' + permalink)
+        before_tags = set(article.tags)
         for key,value in property_hash.iteritems():
             setattr(article, key, value)
-        after_tags = set(article.tag_keys)
+        after_tags = set(article.tags)
         for removed_tag in before_tags - after_tags:
-            db.get(removed_tag).counter.decrement()
+            models.blog.Tag.get_or_insert(removed_tag).counter.decrement()
         for added_tag in after_tags - before_tags:
-            db.get(added_tag).counter.increment()
+            models.blog.Tag.get_or_insert(added_tag).counter.increment()
         process_embedded_code(article)
         article.put()
         restful.send_successful_response(handler, '/' + article.permalink)
@@ -199,9 +200,6 @@ def process_article_submission(handler, article_type):
          ('permalink', permalink_funcs[article_type], 'title', 'published')])
 
     if property_hash:
-        if 'tags' in property_hash:
-            property_hash['tag_keys'] = [get_tag_key(name) 
-                                         for name in property_hash['tags']]
         property_hash['format'] = 'html'   # For now, convert all to HTML
         property_hash['article_type'] = article_type
         article = models.blog.Article(**property_hash)
@@ -210,12 +208,26 @@ def process_article_submission(handler, article_type):
              'amazon_items': handler.request.get('amazon_items')})
         process_embedded_code(article)
         article.put()
-        for key in article.tag_keys:
-            db.get(key).counter.increment()
+        # Ensure there is a year entity for this entry's year
+        models.blog.Year.get_or_insert('Y%d' % (article.published.year,))
+        # Update tags
+        for key in article.tags:
+            models.blog.Tag.get_or_insert(key).counter.increment()
+        do_sitemap_ping()
         restful.send_successful_response(handler, '/' + article.permalink)
         view.invalidate_cache()
     else:
         handler.error(400)
+
+def add_comment_tx(article_key, parent, property_hash, key_name):
+    article = models.blog.Article.get(article_key)
+    article.num_comments += 1
+    comment = models.blog.Comment(parent=parent, key_name=key_name,
+                                  **property_hash)
+    comment.comment_id = article.next_comment_id
+    article.next_comment_id += 1
+    db.put([article, comment])
+    return comment
 
 def process_comment_submission(handler, article):
     sanitize_comment = get_sanitizer_func(handler,
@@ -244,47 +256,52 @@ def process_comment_submission(handler, article):
         handler.error(401)
         return
 
-    # Generate a thread string.
-    if 'thread' not in property_hash:
-        matchobj = re.match(r'[^#]+#comment-(?P<key>\w+)', 
+    # Find the parent comment
+    key_name = None
+    parent = article.key()
+    if 'thread' in property_hash:
+        comment_list = property_hash['thread'].split(',')
+        key_name = '_' + comment_list[-1]
+        if len(comment_list) > 1:
+            thread_keys = sum([('Comment', '_'+x) for x in comment_list[:-1]], ())
+            parent = db.Key.from_path(parent=parent, *thread_keys)
+        del property_hash['thread']
+    else:
+        matchobj = re.match(r'[^#]+#comment-(?P<id>\d+)', 
                             property_hash['key'])
         if matchobj:
-            logging.debug("Comment has parent: %s", matchobj.group('key'))
-            comment_key = matchobj.group('key')
-            # TODO -- Think about GQL injection security issue since 
-            # it can be submitted by public
-            parent = models.blog.Comment.get(db.Key(comment_key))
-            thread_string = parent.next_child_thread_string()
+            logging.debug("Comment has parent: %s", matchobj.group('id'))
+            comment_id = matchobj.group('id')
+            parent = models.blog.Comment.all().ancestor(article).\
+                filter('comment_id =', int(comment_id)).get()
         else:
             logging.debug("Comment is off main article")
-            comment_key = None
-            thread_string = article.next_comment_thread_string()
-        if not thread_string:
-            handler.error(400)
-            return
-        property_hash['thread'] = thread_string
         del property_hash['key']
-
-    # Get and store some pieces of information from parent article.
-    # TODO: See if this overhead can be avoided
-    if not article.num_comments:
-        article.num_comments = 1
-    else:
-        article.num_comments += 1
-    property_hash['article'] = article.put()
-
     try:
-        comment = models.blog.Comment(**property_hash)
-        comment.put()
+        comment = db.run_in_transaction(add_comment_tx, article.key(),
+                                        parent, property_hash, key_name)
     except:
-        logging.debug("Bad comment: %s", property_hash)
+        logging.info("Bad comment: %s", property_hash)
         handler.error(400)
+        raise
         return
+        
+    # Notify the author of a new comment (from matteocrippa.it)
+    if config.BLOG['send_comment_notification']:
+        recipient = "%s <%s>" % (config.BLOG['author'], config.BLOG['email'],)
+        body = ("A new comment has just been posted on %s/%s by %s."
+                % (config.BLOG['root_url'], article.permalink, comment.name))
+        mail.send_mail(sender=config.BLOG['email'],
+                       to=recipient,
+                       subject="New comment by %s" % (comment.name,),
+                       body=body)
 
     # Render just this comment and send it to client
+    view_path = view.find_file(view.templates, "bloog/blog/comment.html")
     response = template.render(
-        "views/%s/bloog/blog/comment.html" % config.BLOG['theme'], 
-        { 'comment': comment }, debug=config.DEBUG)
+        os.path.join("views", view_path),
+        { 'comment': comment, "use_gravatars": config.BLOG["use_gravatars"] },
+        debug=config.DEBUG)
     handler.response.out.write(response)
     view.invalidate_cache()
 
@@ -306,19 +323,18 @@ def render_article(handler, article):
             # war race due to the following article:
             # http://techblog.tilllate.com/2008/07/20/ten-methods-to-obfuscate-e-mail-addresses-compared/
             captcha = get_captcha(article.key())
-            two_columns = article.two_columns
-            if two_columns is None:
-                two_columns = article.is_big()
             allow_comments = article.allow_comments
             if allow_comments is None:
                 age = (datetime.datetime.now() - article.published).days
                 allow_comments = (age <= config.BLOG['days_can_comment'])
             page = view.ViewPage()
-            page.render(handler, { "two_columns": two_columns,
+            page.render(handler, { "is_big": article.is_big(),
                                    "allow_comments": allow_comments,
                                    "article": article,
                                    "captcha1": captcha[:3],
-                                   "captcha2": captcha[3:6] })
+                                   "captcha2": captcha[3:6],
+                                   "use_gravatars": config.BLOG['use_gravatars']
+            })
     else:
         # This didn't fall into any of our pages or aliases.
         # Page not found.
@@ -375,9 +391,7 @@ class ArticleHandler(restful.Controller):
                 return
 
         # Check undated pages
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', path).get()
-
+        article = models.blog.Article.get_by_key_name('/' + path)
         if not article:
             # This lets you map arbitrary URL patterns like /node/3
             #  to article properties, e.g. 3 -> legacy_id property
@@ -390,7 +404,7 @@ class ArticleHandler(restful.Controller):
 
     @restful.methods_via_query_allowed    
     def post(self, path):
-        article = db.Query(models.blog.Article).filter('permalink =', path).get()
+        article = models.blog.Article.get_by_key_name('/'+path)
         process_comment_submission(self, article)
 
     @authorized.role("admin")
@@ -435,10 +449,9 @@ class ArticleHandler(restful.Controller):
             query = models.blog.Tag.all()
             delete_entity(query)
         else:
-            article = db.Query(models.blog.Article). \
-                         filter('permalink =', path).get()
-            for key in article.tag_keys:
-                db.get(key).counter.decrement()
+            article = models.blog.Article.get_by_key_name('/'+path)
+            for key in article.tags:
+                models.blog.Tag.get_or_insert(key).counter.decrement()
             article.delete()
             view.invalidate_cache()
             restful.send_successful_response(self, "/")
@@ -449,17 +462,15 @@ class BlogEntryHandler(restful.Controller):
         logging.debug("BlogEntryHandler#get for year %s, "
                       "month %s, and perm_link %s", 
                       year, month, perm_stem)
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', 
-                            year + '/' + month + '/' + perm_stem).get()
+        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
+                                                      (year, month, perm_stem))
         render_article(self, article)
 
     @restful.methods_via_query_allowed    
     def post(self, year, month, perm_stem):
         logging.debug("Adding comment for blog entry %s", self.request.path)
-        permalink = year + '/' + month + '/' + perm_stem
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', permalink).get()
+        article = models.blog.Article.get_by_key_name('/%s/%s/%s' %
+                                                      (year, month, perm_stem))
         if article:
             process_comment_submission(self, article)
         else:
@@ -468,18 +479,17 @@ class BlogEntryHandler(restful.Controller):
 
     @authorized.role("admin")
     def put(self, year, month, perm_stem):
-        permalink = year + '/' + month + '/' + perm_stem
+        permalink = '%s/%s/%s' % (year, month, perm_stem)
         logging.debug("BlogEntryHandler#put")
         process_article_edit(handler = self, permalink = permalink)
 
     @authorized.role("admin")
     def delete(self, year, month, perm_stem):
-        permalink = year + '/' + month + '/' + perm_stem
+        permalink = '/%s/%s/%s' % (year, month, perm_stem)
         logging.debug("Deleting blog entry %s", permalink)
-        article = db.Query(models.blog.Article). \
-                     filter('permalink =', permalink).get()
-        for key in article.tag_keys:
-            db.get(key).counter.decrement()
+        article = models.blog.Article.get_by_key_name(permalink)
+        for key in article.tags:
+            models.blog.Tag.get_or_insert(key).counter.decrement()
         article.delete()
         view.invalidate_cache()
         restful.send_successful_response(self, "/")
@@ -565,3 +575,16 @@ class AtomHandler(webapp.RequestHandler):
         page = view.ViewPage()
         page.render(self, {"blog_updated_timestamp": updated, 
                            "articles": articles, "ext": "xml"})
+
+class SitemapHandler(webapp.RequestHandler):
+	def get(self):
+		logging.debug("Sending Sitemap")
+		articles = db.Query(models.blog.Article).order('-published').fetch(1000)
+		if articles:
+			self.response.headers['Content-Type'] = 'text/xml'
+			page = view.ViewPage()
+			page.render(self, {
+          "articles": articles,
+          "ext": "xml",
+          "root_url": config.BLOG['root_url']
+      })

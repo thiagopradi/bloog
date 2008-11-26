@@ -33,7 +33,13 @@ BLOG = {
     # Use the default YUI-based theme.
     # If another string is used besides 'default', calls to static files and
     #  use of template files in /views will go to directory by that name.
-    "theme": "default",
+    "theme": ["default"],
+    
+    # Display gravatars alongside user comments?
+    "use_gravatars": True,
+    
+    # Do you want to be emailed when new comments are posted?
+    "send_comment_notification": True,
 
     # If you want to use legacy ID mapping for your former blog platform,
     # define it here and insert the necessary mapping code in the

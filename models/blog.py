@@ -29,25 +29,11 @@ import config
 import models
 from models import search
 
-# Handle generation of thread strings
-def get_thread_string(article, cur_thread_string):
-    min_str = cur_thread_string + '000'
-    max_str = cur_thread_string + '999'
-    q = db.GqlQuery("SELECT * FROM Comment " +
-                    "WHERE article = :1 " +
-                    "AND thread >= :2 AND thread <= :3",
-                    article, min_str, max_str)
-    num_comments = q.count(999)
-    if num_comments > 998:
-        return None         # Only allow 999 comments on each tree level
-    return cur_thread_string + "%03d" % (num_comments + 1)
-
 class Article(search.SearchableModel):
-    unsearchable_properties = ['permalink', 'legacy_id', 'article_type', 
-                               'excerpt', 'html', 'format', 'tag_keys']
+    unsearchable_properties = ['legacy_id', 'article_type', 
+                               'excerpt', 'html', 'format']
     json_does_not_include = ['assoc_dict']
 
-    permalink = db.StringProperty(required=True)
     # Useful for aliasing of old urls
     legacy_id = db.StringProperty()
     title = db.StringProperty(required=True)
@@ -69,22 +55,28 @@ class Article(search.SearchableModel):
     assoc_dict = db.BlobProperty()
     # To prevent full query when just showing article headlines
     num_comments = db.IntegerProperty(default=0)
+    # Id of next comment, for generating unique comment numbers.
+    # We can't use num_comments because that could decrease if we delete some.
+    next_comment_id = db.IntegerProperty(default=1)
     # Use keys instead of db.Category for consolidation of tag names
     tags = db.StringListProperty(default=[])
-    tag_keys = db.ListProperty(db.Key, default=[])
-    two_columns = db.BooleanProperty()
     allow_comments = db.BooleanProperty()
     # A list of languages for code embedded in article.
     # This lets us choose the proper javascript for pretty viewing.
     embedded_code = db.StringListProperty()
 
-    def get_comments(self):
+    def __init__(self, permalink=None, **kwargs):
+        if permalink:
+            super(Article, self).__init__(key_name='/'+permalink, **kwargs)
+        else:
+            super(Article, self).__init__(**kwargs)
+
+    @property
+    def comments(self):
         """Return comments lexicographically sorted on thread string"""
-        q = db.GqlQuery("SELECT * FROM Comment " +
-                        "WHERE article = :1 " +
-                        "ORDER BY thread ASC", self.key())
-        return [comment for comment in q]
-    comments = property(get_comments)       # No set for now
+        return db.GqlQuery("SELECT * FROM Comment " +
+                           "WHERE ancestor IS :1 " +
+                           "ORDER BY __key__ ASC", self.key())
 
     def set_associated_data(self, data):
         """
@@ -98,6 +90,10 @@ class Article(search.SearchableModel):
     def get_associated_data(self):
         import pickle
         return pickle.loads(self.assoc_dict)
+
+    @property
+    def permalink(self):
+        return self.key().name()[1:]
 
     def full_permalink(self):
         return config.BLOG['root_url'] + '/' + self.permalink
@@ -119,10 +115,6 @@ class Article(search.SearchableModel):
         else:
             return False
 
-    def next_comment_thread_string(self):
-        'Returns thread string for next comment for this article'
-        return get_thread_string(self, '')
-
     def to_atom_xml(self):
         """Returns a string suitable for inclusion in Atom XML feed
         
@@ -136,20 +128,9 @@ class Article(search.SearchableModel):
 
 class Comment(models.SerializableModel):
     """Stores comments and their position in comment threads.
-
-    Thread string describes the tree using 3 digit numbers.
-    This allows lexicographical sorting to order comments
-    and easy indentation computation based on the string depth.
-    Example for comments that are nested except first response:
-    001
-      001.001
-      001.002
-        001.002.001
-          001.002.001.001
-    NOTE: This means we assume less than 999 comments in
-      response to a parent comment, and we won't have
-      nesting that causes our thread string > 500 bytes.
-      TODO -- Put in error checks
+    
+    Comments have as their parent entity the comment to which they are a reply
+    or the Article entity if they're a root-level comment.
     """
     name = db.StringProperty()
     email = db.EmailProperty()
@@ -157,17 +138,12 @@ class Comment(models.SerializableModel):
     title = db.StringProperty()
     body = db.TextProperty(required=True)
     published = db.DateTimeProperty(auto_now_add=True)
-    article = db.ReferenceProperty(Article)
-    thread = db.StringProperty(required=True)
+    # Only guaranteed to be unique for the parent article.
+    comment_id = db.IntegerProperty()
 
     def get_indentation(self):
         # Indentation is based on degree of nesting in "thread"
-        nesting_str_array = self.thread.split('.')
-        return min([len(nesting_str_array), 10])
-
-    def next_child_thread_string(self):
-        'Returns thread string for next child of this comment'
-        return get_thread_string(self.article, self.thread + '.')
+        return self.key()._ToPb().path().element_size()
 
 
 class Tag(models.MemcachedModel):
@@ -194,4 +170,24 @@ class Tag(models.MemcachedModel):
     def get_name(self):
         return self.key().name()
     name = property(get_name)
+
+
+class Year(db.Model):
+    """Empty model for keeping track of years in which there are blog posts."""
     
+    MEMCACHE_KEY = "PS_Year_ALL"
+
+    @classmethod
+    def get_all_years(cls):
+        years = memcache.get(cls.MEMCACHE_KEY)
+        if years:
+            return years.split(',')
+        else:
+            years = sorted(x.key().name()[1:] for x in cls.all())
+            memcache.set(cls.MEMCACHE_KEY, ','.join(years))
+            return years
+
+    @classmethod
+    def get_or_insert(cls, key_name, **kwargs):
+        memcache.delete(cls.MEMCACHE_KEY)
+        return super(Year, cls).get_or_insert(key_name, **kwargs)
