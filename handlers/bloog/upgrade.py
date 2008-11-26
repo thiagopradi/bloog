@@ -65,7 +65,6 @@ class UpgradeHandler(webapp.RequestHandler):
             q['__key__ >='] = datastore.Key(next)
         q.Order('__key__')
         articles = q.Get(2)
-        logging.info(len(articles))
         if not articles or 'permalink' not in articles[0]:
             self.response.out.write("Done!")
             return
@@ -76,14 +75,14 @@ class UpgradeHandler(webapp.RequestHandler):
         comments = q.Get(1000)
         if datastore.RunInTransaction(self.ArticleUpdateTx, article, comments):
             datastore.Delete([article] + comments)
-            logging.info("Updated article %s" % (article['title'],))
-            self.response.out.write("Updated article %s" % (article['title'],))
+            logging.info('Updated article "%s"' % (article['title'],))
+            self.response.out.write('Updated article "%s"' % (article['title'],))
             if len(articles) > 1:
                 self.redirect("/admin/upgrade?next=%s" % (articles[1].key()))
             else:
                 self.response.out.write("Done!")
                 return
         else:
-            logging.info("Failed to update article %s. Trying again." % (article['title'],))
-            self.response.out.write("Failed to update article %s. Trying again." % (article['title'],))
+            logging.info('Failed to update article "%s". Trying again.' % (article['title'],))
+            self.response.out.write('Failed to update article "%s". Trying again.' % (article['title'],))
             self.redirect("/admin/upgrade?next=%s" % (article.key()))
