@@ -29,7 +29,8 @@ class UpgradeHandler(webapp.RequestHandler):
     ARTICLE_PROPERTIES = ['legacy_id', 'title', 'article_type', 'body',
                           'excerpt', 'html', 'published', 'updated', 'format',
                           'assoc_dict', 'num_comments', 'tags',
-                          'allow_comments', 'embedded_code']
+                          'allow_comments', 'embedded_code',
+                          '__searchable_text_index']
     COMMENT_PROPERTIES = ['name', 'email', 'homepage', 'title', 'body',
                           'published']
 
