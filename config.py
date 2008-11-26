@@ -21,7 +21,7 @@ BLOG = {
     # application due to mail api restrictions.
     "email": "arachnid@notdot.net",
     "description": "Because repeating myself sucks.",
-    "root_url": "http://bloog.notdot.net",
+    "root_url": "http://blog.notdot.net",
     "master_atom_url": "/feeds/atom.xml",
     # By default, visitors can comment on article for this many days.
     # This can be overridden by setting article.allow_comments
@@ -45,14 +45,14 @@ BLOG = {
     # define it here and insert the necessary mapping code in the
     # legacy_id_mapping() function in ArticleHandler (blog.py).
     # Currently only "Drupal" is supported.
-    "legacy_blog_software": None,
+    #"legacy_blog_software": None,
     #"legacy_blog_software": "Drupal",
-    #"legacy_blog_software": "Serendipity",
+    "legacy_blog_software": "Serendipity",
     
     # If you want imported legacy entries _not_ mapped in the file above to
     # redirect to their new permanent URL rather than responding on their
     # old URL, set this flag to True.
-    "legacy_entry_redirect": False,
+    "legacy_entry_redirect": True,
 }
 
 PAGE = {
