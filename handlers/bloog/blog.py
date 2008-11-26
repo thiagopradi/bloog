@@ -219,6 +219,16 @@ def process_article_submission(handler, article_type):
     else:
         handler.error(400)
 
+def add_comment_tx(article_key, parent, property_hash, key_name):
+    article = models.blog.Article.get(article_key)
+    article.num_comments += 1
+    comment = models.blog.Comment(parent=parent, key_name=key_name,
+                                  **property_hash)
+    comment.comment_id = article.next_comment_id
+    article.next_comment_id += 1
+    db.put([article, comment])
+    return comment
+
 def process_comment_submission(handler, article):
     sanitize_comment = get_sanitizer_func(handler,
                                           allow_attributes=['href', 'src'],
@@ -246,41 +256,34 @@ def process_comment_submission(handler, article):
         handler.error(401)
         return
 
-    # Generate a thread string.
-    if 'thread' not in property_hash:
-        matchobj = re.match(r'[^#]+#comment-(?P<key>\w+)', 
+    # Find the parent comment
+    key_name = None
+    parent = article.key()
+    if 'thread' in property_hash:
+        comment_list = property_hash['thread'].split(',')
+        key_name = '_' + comment_list[-1]
+        if len(comment_list) > 1:
+            thread_keys = sum([('Comment', '_'+x) for x in comment_list[:-1]], ())
+            parent = db.Key.from_path(parent=parent, *thread_keys)
+        del property_hash['thread']
+    else:
+        matchobj = re.match(r'[^#]+#comment-(?P<id>\d+)', 
                             property_hash['key'])
         if matchobj:
-            logging.debug("Comment has parent: %s", matchobj.group('key'))
-            comment_key = matchobj.group('key')
-            # TODO -- Think about GQL injection security issue since 
-            # it can be submitted by public
-            parent = models.blog.Comment.get(db.Key(comment_key))
-            thread_string = parent.next_child_thread_string()
+            logging.debug("Comment has parent: %s", matchobj.group('id'))
+            comment_id = matchobj.group('id')
+            parent = models.blog.Comment.all().ancestor(article).\
+                filter('comment_id =', int(comment_id)).get()
         else:
             logging.debug("Comment is off main article")
-            comment_key = None
-            thread_string = article.next_comment_thread_string()
-        if not thread_string:
-            handler.error(400)
-            return
-        property_hash['thread'] = thread_string
         del property_hash['key']
-
-    # Get and store some pieces of information from parent article.
-    # TODO: See if this overhead can be avoided
-    if not article.num_comments:
-        article.num_comments = 1
-    else:
-        article.num_comments += 1
-    property_hash['article'] = article.put()
-
     try:
-        comment = models.blog.Comment(**property_hash)
-        comment.put()
+        comment = db.run_in_transaction(add_comment_tx, article.key(),
+                                        parent, property_hash, key_name)
     except:
-        logging.debug("Bad comment: %s", property_hash)
+        logging.info("Bad comment: %s", property_hash)
         handler.error(400)
+        raise
         return
         
     # Notify the author of a new comment (from matteocrippa.it)

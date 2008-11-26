@@ -141,11 +141,10 @@ def fix_string(str_from_db):
 def fix_thread_string(tstr):
     """
     Takes a string with numbers separated by period and possibly with /
-    at end, and outputs a string with 3 digit numbers separated by periods.
+    at end, and outputs a string with numbers separated by commas.
     """
     remove_slash = lambda s: s[:-1] if s[-1] == '/' else s
-    three_digits = lambda s: "%03d" % int(s)
-    return '.'.join( map(three_digits, map(remove_slash, tstr.split('.'))))
+    return ','.join( map(int, map(remove_slash, tstr.split('.'))))
 
 class Error(Exception):
     """Base-class for exceptions in this module."""
@@ -354,7 +353,7 @@ class SerendipityConverter(BlogConverter):
                 'title': data[3],
                 'body': re.sub('\n', '<br />', data[4]),
                 'published': str(datetime.datetime.fromtimestamp(data[5])),
-                'thread': '.'.join('%03d' % x for x in thread),
+                'thread': ','.join('%d' % x for x in thread),
                 'name': data[6],
                 'email': data[7],
                 'homepage': data[8],

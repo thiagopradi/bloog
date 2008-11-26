@@ -1,4 +1,4 @@
-<li id="comment-{{ comment.key }}" class="alt item indent{{ comment.get_indentation }}">
+<li id="comment-{{ comment.comment_id }}" class="alt item indent{{ comment.get_indentation }}">
     <div class="fix">
         <p class="comment_meta">
             {% if use_gravatars and comment.email %}
@@ -13,7 +13,7 @@
         </div>
         {% if allow_comments %}
         <p class="post_meta">
-            <a class="replybtn" title="Reply to Comment" href="#comment-{{ comment.key }}">Reply</a>
+            <a class="replybtn" title="Reply to Comment" href="#comment-{{ comment.comment_id }}">Reply</a>
         </p>
         {% endif %}
     </div>
