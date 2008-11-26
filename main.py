@@ -30,7 +30,7 @@ import os
 import sys
 import wsgiref.handlers
 
-from handlers.bloog import blog, contact, cache_stats, timings
+from handlers.bloog import blog, contact, cache_stats, timings, upgrade
 import config
 
 # Force sys.path to have our own directory first, so we can import from it.
@@ -53,6 +53,7 @@ ROUTES = [
     ('/([12]\d\d\d)/(\d|[01]\d)/([-\w]+)/*$', blog.BlogEntryHandler),
     ('/admin/cache_stats/*$', cache_stats.CacheStatsHandler),
     ('/admin/timings/*$', timings.TimingHandler),
+    ('/admin/upgrade$', upgrade.UpgradeHandler),
     ('/search', blog.SearchHandler),
     ('/contact/*$', contact.ContactHandler),
     ('/tag/(.*)', blog.TagHandler),
