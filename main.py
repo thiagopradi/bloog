@@ -59,7 +59,8 @@ ROUTES = [
     ('/tag/(.*)', blog.TagHandler),
     (config.BLOG['master_atom_url'] + '/*$', blog.AtomHandler),
     ('/articles', blog.ArticlesHandler),
-    ('/sitemap.xml', blog.SitemapHandler),
+    ('/sitemap.xml$', blog.SitemapHandler),
+    ('/cse.xml$', blog.CseHandler),
     ('/(.*)', blog.ArticleHandler)]
 
 def main():

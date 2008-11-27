@@ -53,6 +53,12 @@ BLOG = {
     # redirect to their new permanent URL rather than responding on their
     # old URL, set this flag to True.
     "legacy_entry_redirect": True,
+    
+    # If you want to use a Google Custom Search Engine instead of the built-in
+    # search facility, set the setting below to True. To improve the
+    # completeness and timeliness of the search, make sure you've submitted your
+    # sitemap to Google (/sitemap.xml).
+    "use_google_cse": True,
 }
 
 PAGE = {
