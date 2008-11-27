@@ -85,10 +85,23 @@
                 <div id="midCol">
                     {% block search %}
                     <div id="searchWrap">
+                        {% if blog.custom_search_id %}
+                        <form action="/search" id="cse-search-box">
+                          <div>
+                            <input type="hidden" name="cx" value="{{blog.custom_search_id}}" />
+                            <input type="hidden" name="cof" value="FORID:11" />
+                            <input type="hidden" name="ie" value="UTF-8" />
+                            <input type="text" name="q" id="s" size="31" />
+                            <input type="image" name="sa" value="Search" src="/static/default/images/btn_search.gif" alt="Search" />
+                          </div>
+                        </form>
+                        <script type="text/javascript" src="http://www.google.com/coop/cse/brand?form=cse-search-box&lang=en"></script>
+                        {% else %}
                         <form method="get" id="searchForm" action="/search">
                             <input type="text" value="{{ searchterm }}" name="s" id="s" />
                             <input id="searchsubmit" type="image" src="/static/default/images/btn_search.gif" alt="Search" />
                         </form>
+                        {% endif %}
                     </div>
                     {% endblock %}
 

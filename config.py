@@ -53,6 +53,11 @@ BLOG = {
     # redirect to their new permanent URL rather than responding on their
     # old URL, set this flag to True.
     "legacy_entry_redirect": False,
+    
+    # If you want to use a Google Custom Search Engine instead of the built-in
+    # search facility, create one at http://www.google.com/cse/ and copy the
+    # 'cx' parameter from the 'Code' page into the value below.
+    "custom_search_id": "",
 }
 
 PAGE = {
