@@ -43,6 +43,7 @@ import re
 import os
 import cgi
 import urllib
+import urlparse
 
 import logging
 
@@ -509,7 +510,7 @@ class TagHandler(restful.Controller):
 class SearchHandler(restful.Controller):
     def get(self):
         page = view.ViewPage()
-        if not config.BLOG['custom_search_id']:
+        if not config.BLOG['use_google_cse']:
             from google.appengine.api import datastore_errors
             search_term = self.request.get("s")
             query_string = 's=' + urllib.quote_plus(search_term) + '&'
@@ -581,14 +582,24 @@ class AtomHandler(webapp.RequestHandler):
                            "articles": articles, "ext": "xml"})
 
 class SitemapHandler(webapp.RequestHandler):
-	def get(self):
-		logging.debug("Sending Sitemap")
-		articles = db.Query(models.blog.Article).order('-published').fetch(1000)
-		if articles:
-			self.response.headers['Content-Type'] = 'text/xml'
-			page = view.ViewPage()
-			page.render(self, {
-          "articles": articles,
-          "ext": "xml",
-          "root_url": config.BLOG['root_url']
-      })
+    def get(self):
+        logging.debug("Sending Sitemap")
+        articles = db.Query(models.blog.Article).order('-published').fetch(1000)
+        if articles:
+          self.response.headers['Content-Type'] = 'text/xml'
+          page = view.ViewPage()
+          page.render(self, {
+              "articles": articles,
+              "ext": "xml",
+              "root_url": config.BLOG['root_url']
+          })
+
+class CseHandler(webapp.RequestHandler):
+    """Handler for custom search engine definition file."""
+    def get(self):
+        self.response.headers['Content-Type'] = 'text/xml'
+        page = view.ViewPage()
+        page.render(self, {
+            "ext": "xml",
+            "blog_base": urlparse.urlparse(config.BLOG['root_url']).netloc,
+        })

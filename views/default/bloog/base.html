@@ -85,10 +85,10 @@
                 <div id="midCol">
                     {% block search %}
                     <div id="searchWrap">
-                        {% if blog.custom_search_id %}
+                        {% if blog.use_google_cse %}
                         <form action="/search" id="cse-search-box">
                           <div>
-                            <input type="hidden" name="cx" value="{{blog.custom_search_id}}" />
+                            <input type="hidden" name="cref" value="{{blog.root_url}}/cse.xml" />
                             <input type="hidden" name="cof" value="FORID:11" />
                             <input type="hidden" name="ie" value="UTF-8" />
                             <input type="text" name="q" id="s" size="31" />
