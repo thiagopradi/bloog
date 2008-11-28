@@ -45,6 +45,7 @@ redirects = {
     'uploads/gasworks-tree-3.serendipitythumb.jpg': 'http://static.notdot.net/uploads/gasworks-tree-3.serendipityThumb.jpg',
     'uploads/anagramtree.png': 'http://static.notdot.net/uploads/anagramtree.png',
     'uploads/anagramtree.serendipitythumb.png': 'http://static.notdot.net/uploads/anagramtree.serendipityThumb.png',
-    'feeds/index.rss2': 'http://blog.notdot.net/atom.xml',
-    'feeds/atom10.xml': 'http://blog.notdot.net/atom.xml',
+    'feeds/index.rss2': 'http://blog.notdot.net/feeds/atom.xml',
+    'feeds/atom10.xml': 'http://blog.notdot.net/feeds/atom.xml',
+    'atom.xml': 'http://blog.notdot.net/feeds/atom.xml',
 }
