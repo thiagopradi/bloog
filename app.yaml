@@ -43,4 +43,7 @@ skip_files: |
  (dev/.*)|
  (tests/.*)|
  (docs/.*)|
+ (.*\.markdown)|
+ (license\.txt)|
+ (setup.py)
  )$
