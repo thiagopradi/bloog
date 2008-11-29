@@ -29,11 +29,18 @@ import config
 import models
 from models import search
 
+
+class Author(db.Model):
+    user = db.UserProperty(required=True)
+    name = db.TextProperty(required=True)
+
+
 class Article(search.SearchableModel):
     unsearchable_properties = ['legacy_id', 'article_type', 
                                'excerpt', 'html', 'format']
-    json_does_not_include = ['assoc_dict']
+    json_does_not_include = ['assoc_dict', 'next_comment_id']
 
+    author = db.ReferenceProperty(Author)
     # Useful for aliasing of old urls
     legacy_id = db.StringProperty()
     title = db.StringProperty(required=True)
@@ -77,6 +84,13 @@ class Article(search.SearchableModel):
         return db.GqlQuery("SELECT * FROM Comment " +
                            "WHERE ancestor IS :1 " +
                            "ORDER BY __key__ ASC", self.key())
+    
+    @property
+    def author_name(self):
+        if self.author:
+            return self.author.name
+        else:
+            return config.BLOG['authors'][config.BLOG['email']]
 
     def set_associated_data(self, data):
         """

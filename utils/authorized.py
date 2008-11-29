@@ -30,12 +30,46 @@ __author__ = 'William T. Katz'
 
 from google.appengine.api import users
 
+import config
 import logging
+
+def has_role(self, role):
+    """Checks if the user has the specified role.
+    
+    Returns true if they do, or sends an error to the user and returns False if
+    they do not.
+    """
+    user = users.get_current_user()
+    if not user:
+        if self.request.method != 'GET':
+            logging.debug("Not user - aborting")
+            self.error(403)
+            return False
+        else:
+            logging.debug("User not logged in -- force login")
+            self.redirect(users.create_login_url(self.request.uri))
+            return False
+    elif (role == "user" 
+          or (role == "admin" and users.is_current_user_admin())
+          or (role == "author" and user.email() in config.BLOG['authors'])):
+        logging.debug("Role is %s so will allow handler", role)
+        return True
+    else:
+        if self.request.method == 'GET':
+            logging.debug("Unknown role (%s) on GET", role)
+            self.redirect("/403.html")
+            return False
+        else:
+            logging.debug("User '%s' lacks role '%s'", user.email(), role)
+            self.error(403) # User didn't meet role.  
+                            # TODO: Give better feedback/status code.
+            return False
+
 
 def role(role):
     """
-    A decorator to enforce user roles, currently 'user' (logged in) 
-    and 'admin'.
+    A decorator to enforce user roles, currently 'user' (logged in),
+    'author' (logged in and listed as an author in the config), and 'admin'.
 
     To use it, decorate your handler methods like this:
 
@@ -55,26 +89,8 @@ def role(role):
     """
     def wrapper(handler_method):
         def check_login(self, *args, **kwargs):
-            user = users.get_current_user()
-            if not user:
-                if self.request.method != 'GET':
-                    logging.debug("Not user - aborting")
-                    self.error(403)
-                else:
-                    logging.debug("User not logged in -- force login")
-                    self.redirect(users.create_login_url(self.request.uri))
-            elif role == "user" or (role == "admin" and     
-                                    users.is_current_user_admin()):
-                logging.debug("Role is %s so will allow handler", role)
+            if has_role(self, role):
                 handler_method(self, *args, **kwargs)
-            else:
-                if self.request.method == 'GET':
-                    logging.debug("Unknown role (%s) on GET", role)
-                    self.redirect("/403.html")
-                else:
-                    logging.debug("Unknown role: %s", role)
-                    self.error(403) # User didn't meet role.  
-                                    # TODO: Give better feedback/status code.
         return check_login
     return wrapper
 

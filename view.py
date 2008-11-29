@@ -173,11 +173,13 @@ class ViewPage(object):
         years = Year.get_all_years()
 
         # Define some parameters it'd be nice to have in views by default.
+        current_user = users.get_current_user()
         template_params = {
             "current_url": url,
             "bloog_version": config.BLOG['bloog_version'],
             "user": users.get_current_user(),
             "user_is_admin": users.is_current_user_admin(),
+            "user_is_author": current_user and current_user.email() in config.BLOG['authors'],
             "login_url": users.create_login_url(handler.request.uri),
             "logout_url": users.create_logout_url(handler.request.uri),
             "blog": config.BLOG,
