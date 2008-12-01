@@ -30,9 +30,15 @@ import models
 from models import search
 
 
-class Author(db.Model):
+class Author(models.MemcachedModel):
+    list_includes = ["nick"]
     user = db.UserProperty(required=True)
     name = db.TextProperty(required=True)
+    article_count = db.IntegerProperty(required=True, default=0)
+
+    @property
+    def nick(self):
+        return self.key().name()
 
 
 class Article(search.SearchableModel):
@@ -84,13 +90,6 @@ class Article(search.SearchableModel):
         return db.GqlQuery("SELECT * FROM Comment " +
                            "WHERE ancestor IS :1 " +
                            "ORDER BY __key__ ASC", self.key())
-    
-    @property
-    def author_name(self):
-        if self.author:
-            return self.author.name
-        else:
-            return config.BLOG['authors'][config.BLOG['email']]
 
     def set_associated_data(self, data):
         """

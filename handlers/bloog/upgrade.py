@@ -22,8 +22,13 @@
 
 import logging
 from google.appengine.api import datastore
+from google.appengine.api import datastore_errors
+from google.appengine.api import users
 from google.appengine.ext import webapp
 from utils import authorized
+from utils.external import simplejson
+import config
+import view
 
 class UpgradeHandler(webapp.RequestHandler):
     ARTICLE_PROPERTIES = ['legacy_id', 'title', 'article_type', 'body',
@@ -34,56 +39,99 @@ class UpgradeHandler(webapp.RequestHandler):
     COMMENT_PROPERTIES = ['name', 'email', 'homepage', 'title', 'body',
                           'published']
 
-    def ArticleUpdateTx(self, old_article, old_comments):
-        article = datastore.Entity('Article', name='/'+old_article['permalink'])
-        for prop in self.ARTICLE_PROPERTIES:
-            if prop in old_article:
-                article[prop] = old_article[prop]
-        article['next_comment_id'] = len(old_comments) + 1
-        datastore.Put(article)
-        
-        comments = {}
-        i = 1
-        for old_comment in old_comments:
-            parent_thread = old_comment['thread'].rpartition('.')[0]
-            parent = comments.get(parent_thread, article)
-            comment = datastore.Entity('Comment', parent=parent.key())
-            for prop in self.COMMENT_PROPERTIES:
-                if prop in old_comment:
-                    comment[prop] = old_comment[prop]
-            comment['comment_id'] = i
-            i += 1
-            datastore.Put(comment)
-            comments[old_comment['thread']] = comment
-        
-        return True
-        
-    @authorized.role("admin")
-    def get(self):
-        next = self.request.get('next', None)
-        q = datastore.Query('Article')
-        if next:
-            q['__key__ >='] = datastore.Key(next)
-        q.Order('__key__')
-        articles = q.Get(2)
-        if not articles or 'permalink' not in articles[0]:
-            self.response.out.write("Done!")
-            return
-        article = articles[0]
+    def upgrade1(self, article):
+        def ArticleUpdateTx(old_article, old_comments):
+            article = datastore.Entity('Article', name='/'+old_article['permalink'])
+            for prop in self.ARTICLE_PROPERTIES:
+                if prop in old_article:
+                    article[prop] = old_article[prop]
+            article['next_comment_id'] = len(old_comments) + 1
+            datastore.Put(article)
+            
+            comments = {}
+            i = 1
+            for old_comment in old_comments:
+                parent_thread = old_comment['thread'].rpartition('.')[0]
+                parent = comments.get(parent_thread, article)
+                comment = datastore.Entity('Comment', parent=parent.key())
+                for prop in self.COMMENT_PROPERTIES:
+                    if prop in old_comment:
+                        comment[prop] = old_comment[prop]
+                comment['comment_id'] = i
+                i += 1
+                datastore.Put(comment)
+                comments[old_comment['thread']] = comment
+            
+            return True
+
+        if 'permalink' not in article:
+            return -1
         q = datastore.Query('Comment')
         q['article ='] = article.key()
         q.Order('thread')
         comments = q.Get(1000)
-        if datastore.RunInTransaction(self.ArticleUpdateTx, article, comments):
+        if datastore.RunInTransaction(ArticleUpdateTx, article, comments):
             datastore.Delete([article] + comments)
             logging.info('Updated article "%s"' % (article['title'],))
-            self.response.out.write('Updated article "%s"' % (article['title'],))
-            if len(articles) > 1:
-                self.redirect("/admin/upgrade?next=%s" % (articles[1].key()))
-            else:
-                self.response.out.write("Done!")
-                return
+            return 1
         else:
             logging.info('Failed to update article "%s". Trying again.' % (article['title'],))
-            self.response.out.write('Failed to update article "%s". Trying again.' % (article['title'],))
-            self.redirect("/admin/upgrade?next=%s" % (article.key()))
+            return 0
+    
+    def upgrade2(self, article):
+        if 'author' in article:
+            return 1
+        email = config.BLOG['email']
+        name, nick = config.BLOG['authors'][email]
+        try:
+            author = datastore.Get(datastore.Key.from_path("Author", nick))
+        except datastore_errors.EntityNotFoundError:
+            author = datastore.Entity('Author', name=nick)
+            author['user'] = users.User(email)
+            author['name'] = name
+            author['article_count'] = 0
+        author['article_count'] += 1
+        article['author'] = author.key()
+        datastore.Put([article, author])
+        return 1
+    
+    upgrade_phases = {
+        1: upgrade1,
+        2: upgrade2,
+    }
+    
+    @authorized.role("admin")
+    def get(self):
+        upgrade_phase = int(self.request.get('phase', 0))
+        if not upgrade_phase:
+            page = view.ViewPage()
+            page.render(self, {})
+            return
+
+        next = self.request.get('next', None)
+        upgrade_func = self.upgrade_phases[upgrade_phase]
+        
+        q = datastore.Query('Article')
+        if next:
+            q['__key__ >'] = datastore.Key(next)
+        q.Order('__key__')
+        articles = q.Get(1)
+        if articles:
+            article = articles[0]
+            logging.info("Running upgrade phase %d on article '%s'"
+                         % (upgrade_phase, article['title']))
+            result = upgrade_func(self, article)
+            if result == -1:
+                upgrade_phase +=1
+                next = ''
+            elif result == 1:
+                next = str(article.key())
+        if upgrade_phase not in self.upgrade_phases or not article:
+            self.response.out.write("")
+        else:
+            response = {
+                "title": article['title'] if next else '',
+                "next": next,
+                "phase": upgrade_phase,
+            }
+            self.response.out.write(simplejson.dumps(response))

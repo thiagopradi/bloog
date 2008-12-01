@@ -23,6 +23,7 @@
             {% if article.num_comments %}
             <span class="comments"><a href="/{{ article.permalink }}#comments">{{ article.num_comments }}</a></span>
             {% endif %}
+            <span class="author"><a href="/author/{{article.author.nick|urlencode}}">{{article.author.name}}</a></span>
             <span class="date">{{ article.published.date }}</span>
         </div>
         <h2><a id="blogtitle" href="/{{ article.permalink }}" title="{{ article.title }}">{{ article.title }}</a></h2>

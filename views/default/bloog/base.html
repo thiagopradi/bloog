@@ -122,6 +122,22 @@
                         </p>
                     </div>
                     {% endblock %}
+                    
+                    {% block authors %}
+                    {% if blog_authors %}
+                    <div class="middle_links">
+                        <h3>Authors</h3>
+                        <p class="authors">
+                        {% for author in blog_authors %}
+                            {% ifnotequal author.count 0 %}
+                            <a href="/author/{{ author.nick|urlencode }}">{{ author.name }}</a>
+                            ({{ author.article_count }})<br />
+                            {% endifnotequal %}
+                        {% endfor %}
+                        </p>
+                    </div>
+                    {% endif %}
+                    {% endblock %}
 
                     {% block extra_panel %}
                     {% endblock %}

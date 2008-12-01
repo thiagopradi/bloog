@@ -28,6 +28,12 @@ indexes:
   - name: published
     direction: desc
 
+- kind: Article
+  properties:
+  - name: author
+  - name: published
+    direction: desc
+
 - kind: Comment
   ancestor: yes
   properties:

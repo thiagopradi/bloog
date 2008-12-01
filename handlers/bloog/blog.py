@@ -173,7 +173,7 @@ def process_article_edit(handler, permalink):
 
     if property_hash:
         article = models.blog.Article.get_by_key_name('/' + permalink)
-        if article.author and article.author.user != users.get_current_user():
+        if article.author.user != users.get_current_user():
             if not authorized.has_role(handler, "admin"): return
         before_tags = set(article.tags)
         for key,value in property_hash.iteritems():
@@ -207,6 +207,7 @@ def process_article_submission(handler, article_type):
         author_name, author_nick = config.BLOG['authors'][author_user.email()]
         author = models.blog.Author.get_or_insert(
             author_nick, user=author_user, name=author_name)
+        author.article_count += 1
         property_hash['author'] = author
         property_hash['format'] = 'html'   # For now, convert all to HTML
         property_hash['article_type'] = article_type
@@ -215,7 +216,7 @@ def process_article_submission(handler, article_type):
             {'relevant_links': handler.request.get('relevant_links'),
              'amazon_items': handler.request.get('amazon_items')})
         process_embedded_code(article)
-        article.put()
+        db.put([article, author])
         # Ensure there is a year entity for this entry's year
         models.blog.Year.get_or_insert('Y%d' % (article.published.year,))
         # Update tags
@@ -296,13 +297,9 @@ def process_comment_submission(handler, article):
         
     # Notify the author of a new comment
     if config.BLOG['send_comment_notification']:
-        if article.author:
-            author_email = article.author.user.email()
-            recipient = (config.BLOG['authors'][author_email][0],
-                         author_email)
-        else:
-            recipient = (config.BLOG['authors'][config.BLOG['email']][0],
-                         config.BLOG['email'])
+        author_email = article.author.user.email()
+        recipient = (config.BLOG['authors'][author_email][0],
+                     author_email)
         body = ("A new comment has just been posted on %s/%s by %s."
                 % (config.BLOG['root_url'], article.permalink, comment.name))
         mail.send_mail(sender=config.BLOG['email'],
@@ -342,18 +339,12 @@ def render_article(handler, article):
             if allow_comments is None:
                 age = (datetime.datetime.now() - article.published).days
                 allow_comments = (age <= config.BLOG['days_can_comment'])
-            if article.author:
-                author_nick = article._author.name()
-                show_edit_controls = (article.author.user == current_user)
-            else:
-                author_nick = None
-                show_edit_controls = current_user and current_user.email() == config.BLOG['email']
+            show_edit_controls = (article.author.user == current_user)
             show_edit_controls |= users.is_current_user_admin()
             page = view.ViewPage()
             page.render(handler, { "is_big": article.is_big(),
                                    "allow_comments": allow_comments,
                                    "article": article,
-                                   "author": article.author,
                                    "show_edit_controls": show_edit_controls,
                                    "captcha1": captcha[:3],
                                    "captcha2": captcha[3:6],
@@ -476,7 +467,7 @@ class ArticleHandler(restful.Controller):
             delete_entity(query)
         else:
             article = models.blog.Article.get_by_key_name('/'+path)
-            if article.author and article.author.user != users.get_current_user():
+            if article.author.user != users.get_current_user():
                 if not authorized.has_role(self, "admin"): return
             for key in article.tags:
                 models.blog.Tag.get_or_insert(key).counter.decrement()
@@ -516,7 +507,7 @@ class BlogEntryHandler(restful.Controller):
         permalink = '/%s/%s/%s' % (year, month, perm_stem)
         logging.debug("Deleting blog entry %s", permalink)
         article = models.blog.Article.get_by_key_name(permalink)
-        if article.author and article.author.user != users.get_current_user():
+        if article.author.user != users.get_current_user():
             if not authorized.has_role(self, "admin"): return
         for key in article.tags:
             models.blog.Tag.get_or_insert(key).counter.decrement()
@@ -632,3 +623,19 @@ class CseHandler(webapp.RequestHandler):
             "ext": "xml",
             "blog_base": urlparse.urlparse(config.BLOG['root_url']).netloc,
         })
+
+class AuthorHandler(webapp.RequestHandler):
+    """Handler for author pages."""
+    def get(self, author_nick):
+        author = models.blog.Author.get_by_key_name(author_nick)
+        if not author:
+            self.error(404)
+            view.ViewPage(cache_time=36000). \
+                 render(self, {'module_name': 'blog', 
+                               'handler_name': 'notfound'})
+        page = view.ViewPage()
+        page.render_query(
+            self, 'articles',
+            db.Query(models.blog.Article).filter('author =',        
+                                                 author).order('-published'), 
+                                                {'author': author})

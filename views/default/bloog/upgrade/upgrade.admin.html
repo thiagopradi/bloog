@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block first_column %}
+    <div id="mainCol" class="fix"><a name="main"></a>
+    <h2>Bloog Upgrade</h2>
+    <pre id="upgradetext">Upgrading (phase 1)...
+</pre>
+    <script type="text/javascript">
+        textelt = document.getElementById("upgradetext");
+        function getHTTPObject() {
+            if (typeof XMLHttpRequest != 'undefined') {
+                return new XMLHttpRequest(); 
+            }
+            try {
+                return new ActiveXObject("Msxml2.XMLHTTP");
+            } catch (e) {
+                try {
+                    return new ActiveXObject("Microsoft.XMLHTTP");
+                } catch (e) {}
+            }
+            return false;
+        }
+        var current_phase = 1;
+        var http = getHTTPObject();
+        function stateChange() {
+            if(http.readyState == 4) {
+                if(http.responseText == "") {
+                    textelt.textContent += "Done!\n";
+                    return;
+                }
+                response = eval('('+http.responseText+')');
+                if(response['phase'] != current_phase) {
+                    current_phase = response['phase'];
+                    textelt.textContent += "Upgrading (phase " + current_phase + ")...\n";
+                }
+                if(response['next']) {
+                    textelt.textContent += "  Updating article '" + response['title'] + "'.\n";
+                }
+                http = getHTTPObject();
+                http.open("GET", location.href + "?phase=" + response['phase'] + "&next=" + response['next'], true);
+                http.onreadystatechange = stateChange;
+                http.send(null);
+            }
+        }
+        http.open("GET", location.href + "?phase=1", true);
+        http.onreadystatechange = stateChange;
+        http.send(null);
+    </script>
+    </div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block first_column %}
+    <div id="mainCol" class="fix"><a name="main"></a>
+    {% if articles %}
+        <div class="post">
+            <h2>Articles by '{{ author.name }}'</h2>
+        </div>
+        {% for article in articles %}
+            {% include '../article_excerpt.html' %}
+        {% endfor %}
+        {% include 'pager.html' %}
+    {% else %}
+        <div class="post">
+            <div class="postMeta"><span class="date">No Matches</span></div>
+            <h2>No articles by '{{ author.name }}'</h2>
+            <div class="entry">
+                <p>No articles were found by the specified author.</p>
+            </div>
+        </div>
+    {% endif %}
+    </div>
+{% endblock %}
