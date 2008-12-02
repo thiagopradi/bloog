@@ -126,7 +126,7 @@ class UpgradeHandler(webapp.RequestHandler):
                 next = ''
             elif result == 1:
                 next = str(article.key())
-        if upgrade_phase not in self.upgrade_phases or not article:
+        if upgrade_phase not in self.upgrade_phases or not articles:
             self.response.out.write("")
         else:
             response = {
