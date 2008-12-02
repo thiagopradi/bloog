@@ -13,7 +13,6 @@ import time
 
 APP_ID = u'test_app'
 AUTH_DOMAIN = 'gmail.com'
-LOGGED_IN_USER = 't...@example.com'  # set to '' for no logged in user
 HOST = 'localhost:8080'
 
 os.environ['SERVER_SOFTWARE'] = 'TestServer/1.0'
@@ -24,6 +23,7 @@ time.tzset()
 
 from handlers.bloog import blog
 import models.blog
+import config
 
 class BloogTest(unittest.TestCase):
 
@@ -40,7 +40,7 @@ class BloogTest(unittest.TestCase):
         apiproxy_stub_map.apiproxy.RegisterStub(
          'user', user_service_stub.UserServiceStub())
         os.environ['AUTH_DOMAIN'] = AUTH_DOMAIN
-        os.environ['USER_EMAIL'] = LOGGED_IN_USER
+        os.environ['USER_EMAIL'] = config.BLOG['email']
 
         # Use a fresh urlfetch stub.
         apiproxy_stub_map.apiproxy.RegisterStub(
@@ -68,7 +68,7 @@ class BloogTest(unittest.TestCase):
             'SCRIPT_NAME': uri,
         }
         if auth:
-            environ['HTTP_COOKIE'] = 'dev_appserver_login="root@example.com:True"'
+            environ['HTTP_COOKIE'] = 'dev_appserver_login="%s:True"' % (config.BLOG['email'],)
         if env:
             environ.update(env)
         request = webapp.Request(environ)
@@ -86,7 +86,7 @@ class BloogTest(unittest.TestCase):
         root, request, response = self.createHandler(blog.RootHandler, '/', {
             'CONTENT_TYPE': 'application/x-www-form-urlencoded',
             'REQUEST_METHOD': 'POST',
-        })
+        }, True)
         postdata = {
             'title': 'Test post',
             'body': 'Post body',
@@ -125,7 +125,7 @@ class BloogTest(unittest.TestCase):
         root, request, response = self.createHandler(blog.MonthHandler, url, {
             'CONTENT_TYPE': 'application/x-www-form-urlencoded',
             'REQUEST_METHOD': 'POST',
-        })
+        }, True)
         postdata = {
             'title': 'Test blog post',
             'body': 'Another post body',

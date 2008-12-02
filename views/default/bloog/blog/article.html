@@ -8,7 +8,7 @@
 {% endif %}
 
 {% block first_column %}
-{% if two_columns %}
+{% if is_big %}
 <div id="twoCol" class-"fix"><a name="main"></a>
 {% else %}
 <div id="mainCol" class="fix"><a name="main"></a>
@@ -16,13 +16,14 @@
 {% if article %}
     <div id="article" class="post">
         <div class="postMeta">
-            {% if user_is_admin %}
+            {% if show_edit_controls %}
             <span class="articlebtn"><a id="editbtn" href="#">Edit</a></span>
             <span class="articlebtn"><a id="deletebtn" href="#">Delete</a></span>
             {% endif %}
             {% if article.num_comments %}
             <span class="comments"><a href="/{{ article.permalink }}#comments">{{ article.num_comments }}</a></span>
             {% endif %}
+            <span class="author"><a href="/author/{{article.author.nick|urlencode}}">{{article.author.name}}</a></span>
             <span class="date">{{ article.published.date }}</span>
         </div>
         <h2><a id="blogtitle" href="/{{ article.permalink }}" title="{{ article.title }}">{{ article.title }}</a></h2>
@@ -91,7 +92,7 @@ dp.SyntaxHighlighter.HighlightAll('code');
 {% endblock %}
 
 {% block third_column %}
-{% if not two_columns %}
+{% if not is_big %}
 {% include 'ads.html' %}
 {% endif %}
 {% endblock %}
