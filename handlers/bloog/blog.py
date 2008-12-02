@@ -261,8 +261,14 @@ def process_comment_submission(handler, article):
                           get_captcha(article.key()))
             handler.error(401)      # Unauthorized
             return
+        if 'thread' in property_hash:
+            handler.error(403)
+            return
+        if not article.are_comments_allowed():
+            handler.error(403)
+            return
     if 'key' not in property_hash and 'thread' not in property_hash:
-        handler.error(401)
+        handler.error(400)
         return
 
     # Find the parent comment
@@ -334,16 +340,12 @@ def render_article(handler, article):
             # war race due to the following article:
             # http://techblog.tilllate.com/2008/07/20/ten-methods-to-obfuscate-e-mail-addresses-compared/
             captcha = get_captcha(article.key())
-            allow_comments = article.allow_comments
             current_user = users.get_current_user()
-            if allow_comments is None:
-                age = (datetime.datetime.now() - article.published).days
-                allow_comments = (age <= config.BLOG['days_can_comment'])
             show_edit_controls = (article.author.user == current_user)
             show_edit_controls |= users.is_current_user_admin()
             page = view.ViewPage()
             page.render(handler, { "is_big": article.is_big(),
-                                   "allow_comments": allow_comments,
+                                   "allow_comments": article.are_comments_allowed(),
                                    "article": article,
                                    "show_edit_controls": show_edit_controls,
                                    "captcha1": captcha[:3],

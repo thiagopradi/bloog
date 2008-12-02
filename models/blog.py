@@ -20,6 +20,7 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 # DEALINGS IN THE SOFTWARE.
 
+import datetime
 import logging
 
 from google.appengine.api import memcache
@@ -138,6 +139,12 @@ class Article(search.SearchableModel):
         """
         import re
         return re.sub('&(?!amp;)', '&amp;', self.html)
+    
+    def are_comments_allowed(self):
+        if self.allow_comments is not None:
+            return self.allow_comments
+        age = (datetime.datetime.now() - self.published).days
+        return age <= config.BLOG['days_can_comment']
 
 class Comment(models.SerializableModel):
     """Stores comments and their position in comment threads.
