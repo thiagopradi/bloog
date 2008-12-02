@@ -1,7 +1,8 @@
 <h2><a href="/{{article.permalink}}" title="{{article.title}}">{{article.title}}</a></h2>
 <p class="post-info">
+    Posted by <a href="/author/{{article.author.nick|urlencode}}">{{article.author.name}}</a>
     {% if article.tags %}
-        Filed under
+        | Filed under
         {% for tag in article.tags %}
         <a href="/tag/{{tag|urlencode}}">{{tag}}</a>{% if not forloop.last %},{% endif %}
         {% endfor %}

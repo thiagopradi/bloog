@@ -67,7 +67,7 @@ BLOG = {
     # search facility, set the setting below to True. To improve the
     # completeness and timeliness of the search, make sure you've submitted your
     # sitemap to Google (/sitemap.xml).
-    "use_google_cse": False,
+    "use_google_cse": True,
 }
 
 PAGE = {

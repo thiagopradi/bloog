@@ -12,8 +12,9 @@
 {% if article %}
     <h2><a id="blogtitle" href="/{{ article.permalink }}" title="{{ article.title }}">{{ article.title }}</a></h2>
     <p class="post-info">
+        Posted by <a href="/author/{{article.author.nick|urlencode}}">{{article.author.name}}</a>
         {% if article.tags %}
-            Filed under
+            | Filed under
             {% for tag in article.tags %}
             <a href="/tag/{{tag|urlencode}}">{{tag}}</a>{% if not forloop.last %},{% endif %}
             {% endfor %}
@@ -27,7 +28,7 @@
         <a href="#comments">Comments ({{article.num_comments}})</a> |
         {% endif %}
         <span class="date">{{article.published.date}}</span>
-        {% if user_is_admin %}
+        {% if show_edit_controls %}
         <span class="articlebtn"><a id="editbtn" href="#">Edit</a></span>
         <span class="articlebtn"><a id="deletebtn" href="#">Delete</a></span>
         {% endif %}
@@ -41,8 +42,8 @@
 {% endif %}
     {% if allow_comments or article.num_comments %}
     <div id="comments_wrapper">
-        <h3 id="comments">{{article.num_comments}} Responses</h3>
-        <ol class="commentlist">
+        <h3 id="comments"><span id="num_comments">{{article.num_comments}}</span> Responses</h3>
+        <ol class="commentlist" id="commentslist">
             {% for comment in article.comments %}
             {% include "comment.html" %}
             {% endfor %}
@@ -77,7 +78,7 @@ dp.SyntaxHighlighter.HighlightAll('code');
 {% endblock %}
 
 {% block third_column %}
-{% if not two_columns %}
+{% if not is_big %}
 {% include 'ads.html' %}
 {% endif %}
 {% endblock %}
