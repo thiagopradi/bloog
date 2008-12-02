@@ -15,7 +15,7 @@ BLOG = {
     "bloog_version": "0.8",
     "html_type": "text/html",
     "charset": "utf-8",
-    "title": "Bloog",
+    "title": "dotcomstolemybrain.com",
     # List authors here, in the form of email: (real name, nick). email address
     # must match the one the user will sign in with, and nick will be the
     # identifier used in URLs. It must not start with a number or underscore.
@@ -23,14 +23,14 @@ BLOG = {
     # new author entirely. Deleting an author who should no longer have access
     # is fine, though.
     "authors": {
-        "you@foo.com": ("Your Name", "yournick"),
+        "lex@notdot.net": ("Your Name", "lex"),
     },
     # This must be the email address of a registered administrator for the 
     # application due to mail api restrictions. Must match an email in the
     # authors array above.
-    "email": "you@foo.com",
-    "description": "A RESTful Blog/Homepage for Google AppEngine.",
-    "root_url": "http://bloog.billkatz.com",
+    "email": "lex@notdot.net",
+    "description": "But we'll give it back if you're nice.",
+    "root_url": "http://www.dotcomstolemybrain.com",
     "master_atom_url": "/feeds/atom.xml",
     # By default, visitors can comment on article for this many days.
     # This can be overridden by setting article.allow_comments
@@ -80,42 +80,7 @@ PAGE = {
           "url": "/contact"},
     ],
     "featuredMyPages": {
-        "title": "Bloog Development",
-        "description": "Get involved",
-        "entries": [
-            { "title": "Source Code", 
-              "url": "http://github.com/DocSavage/bloog", 
-              "description": "GitHub repository" },
-            { "title": "Tarball", 
-              "url": "http://github.com/DocSavage/bloog/tarball/master", 
-              "description": "Most recent snapshot" },
-            { "title": "Group", 
-              "url": "http://groups.google.com/group/bloog/topics", 
-              "description": "Developer discussion" },
-            { "title": "Author's Bloog", 
-              "url": "http://www.billkatz.com", 
-              "description": "What's brewing" },
-            { "title": "Architecture Diagram", 
-              "url": "/static/images/architecture2.png", 
-              "description": "RESTful Bloog" }
-        ]
     },
     "featuredOthersPages": {
-        "title": "Google App Engine",
-        "description": "Developer Resources",
-        "entries": [
-            { "title": "Google App Engine", 
-              "url": "http://code.google.com/appengine/", 
-              "description": "The mothership" },
-            { "title": "App Engine Group", 
-              "url": "http://groups.google.com/group/google-appengine", 
-              "description": "Developer group" },
-            { "title": "App Engine Open Source", 
-              "url": "http://groups.google.com/group/google-appengine/web/google-app-engine-open-source-projects", 
-              "description": "Code!" },
-            { "title": "App Engine Console", 
-              "url": "http://appengine.google.com", 
-              "description": "Your apps" }
-        ]
     },
 }
