@@ -173,6 +173,8 @@ def process_article_edit(handler, permalink):
 
     if property_hash:
         article = models.blog.Article.get_by_key_name('/' + permalink)
+        if article.author.user != users.get_current_user():
+            if not authorized.has_role(handler, "admin"): return
         before_tags = set(article.tags)
         for key,value in property_hash.iteritems():
             setattr(article, key, value)
@@ -201,6 +203,12 @@ def process_article_submission(handler, article_type):
          ('permalink', permalink_funcs[article_type], 'title', 'published')])
 
     if property_hash:
+        author_user = users.get_current_user()
+        author_name, author_nick = config.BLOG['authors'][author_user.email()]
+        author = models.blog.Author.get_or_insert(
+            author_nick, user=author_user, name=author_name)
+        author.article_count += 1
+        property_hash['author'] = author
         property_hash['format'] = 'html'   # For now, convert all to HTML
         property_hash['article_type'] = article_type
         article = models.blog.Article(**property_hash)
@@ -208,7 +216,7 @@ def process_article_submission(handler, article_type):
             {'relevant_links': handler.request.get('relevant_links'),
              'amazon_items': handler.request.get('amazon_items')})
         process_embedded_code(article)
-        article.put()
+        db.put([article, author])
         # Ensure there is a year entity for this entry's year
         models.blog.Year.get_or_insert('Y%d' % (article.published.year,))
         # Update tags
@@ -253,8 +261,14 @@ def process_comment_submission(handler, article):
                           get_captcha(article.key()))
             handler.error(401)      # Unauthorized
             return
+        if 'thread' in property_hash:
+            handler.error(403)
+            return
+        if not article.are_comments_allowed():
+            handler.error(403)
+            return
     if 'key' not in property_hash and 'thread' not in property_hash:
-        handler.error(401)
+        handler.error(400)
         return
 
     # Find the parent comment
@@ -287,13 +301,15 @@ def process_comment_submission(handler, article):
         raise
         return
         
-    # Notify the author of a new comment (from matteocrippa.it)
+    # Notify the author of a new comment
     if config.BLOG['send_comment_notification']:
-        recipient = "%s <%s>" % (config.BLOG['author'], config.BLOG['email'],)
+        author_email = article.author.user.email()
+        recipient = (config.BLOG['authors'][author_email][0],
+                     author_email)
         body = ("A new comment has just been posted on %s/%s by %s."
                 % (config.BLOG['root_url'], article.permalink, comment.name))
         mail.send_mail(sender=config.BLOG['email'],
-                       to=recipient,
+                       to="%s <%s>" % recipient,
                        subject="New comment by %s" % (comment.name,),
                        body=body)
 
@@ -324,22 +340,21 @@ def render_article(handler, article):
             # war race due to the following article:
             # http://techblog.tilllate.com/2008/07/20/ten-methods-to-obfuscate-e-mail-addresses-compared/
             captcha = get_captcha(article.key())
-            allow_comments = article.allow_comments
-            if allow_comments is None:
-                age = (datetime.datetime.now() - article.published).days
-                allow_comments = (age <= config.BLOG['days_can_comment'])
+            current_user = users.get_current_user()
+            show_edit_controls = (article.author.user == current_user)
+            show_edit_controls |= users.is_current_user_admin()
             page = view.ViewPage()
             page.render(handler, { "is_big": article.is_big(),
-                                   "allow_comments": allow_comments,
+                                   "allow_comments": article.are_comments_allowed(),
                                    "article": article,
+                                   "show_edit_controls": show_edit_controls,
                                    "captcha1": captcha[:3],
                                    "captcha2": captcha[3:6],
-                                   "use_gravatars": config.BLOG['use_gravatars']
+                                   "use_gravatars": config.BLOG['use_gravatars'],
             })
     else:
         # This didn't fall into any of our pages or aliases.
         # Page not found.
-        #   could do --> self.redirect('/404.html')
         handler.error(404)
         view.ViewPage(cache_time=36000). \
              render(handler, {'module_name': 'blog', 
@@ -364,7 +379,7 @@ class RootHandler(restful.Controller):
             db.Query(models.blog.Article). \
                filter('article_type =', 'blog entry').order('-published'))
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def post(self):
         logging.debug("RootHandler#post")
         process_article_submission(handler=self, article_type='article')
@@ -408,12 +423,12 @@ class ArticleHandler(restful.Controller):
         article = models.blog.Article.get_by_key_name('/'+path)
         process_comment_submission(self, article)
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def put(self, path):
         logging.debug("ArticleHandler#put")
         process_article_edit(self, permalink = path)
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def delete(self, path):
         """
         By using DELETE on /Article, /Comment, /Tag, you can delete the first 
@@ -441,16 +456,21 @@ class ArticleHandler(restful.Controller):
                 self.response.set_status(204, 'No more %s entities' % (model_class,))
                 
         if model_class == 'article':
+            if not authorized.has_role(self, "admin"): return
             query = models.blog.Article.all()
             delete_entity(query)
         elif model_class == 'comment':
+            if not authorized.has_role(self, "admin"): return
             query = models.blog.Comment.all()
             delete_entity(query)
         elif model_class == 'tag':
+            if not authorized.has_role(self, "admin"): return
             query = models.blog.Tag.all()
             delete_entity(query)
         else:
             article = models.blog.Article.get_by_key_name('/'+path)
+            if article.author.user != users.get_current_user():
+                if not authorized.has_role(self, "admin"): return
             for key in article.tags:
                 models.blog.Tag.get_or_insert(key).counter.decrement()
             article.delete()
@@ -478,17 +498,19 @@ class BlogEntryHandler(restful.Controller):
             logging.debug("No article attached to submitted comment")
             self.error(400)
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def put(self, year, month, perm_stem):
         permalink = '%s/%s/%s' % (year, month, perm_stem)
         logging.debug("BlogEntryHandler#put")
         process_article_edit(handler = self, permalink = permalink)
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def delete(self, year, month, perm_stem):
         permalink = '/%s/%s/%s' % (year, month, perm_stem)
         logging.debug("Deleting blog entry %s", permalink)
         article = models.blog.Article.get_by_key_name(permalink)
+        if article.author.user != users.get_current_user():
+            if not authorized.has_role(self, "admin"): return
         for key in article.tags:
             models.blog.Tag.get_or_insert(key).counter.decrement()
         article.delete()
@@ -559,7 +581,7 @@ class MonthHandler(restful.Controller):
             {'title': 'Articles for ' + month + '/' + year, 
              'year': year, 'month': month})
 
-    @authorized.role("admin")
+    @authorized.role("author")
     def post(self, year, month):
         """ Add a blog entry. Since we are POSTing, the server handles 
             creation of the permalink url. """
@@ -603,3 +625,19 @@ class CseHandler(webapp.RequestHandler):
             "ext": "xml",
             "blog_base": urlparse.urlparse(config.BLOG['root_url']).netloc,
         })
+
+class AuthorHandler(webapp.RequestHandler):
+    """Handler for author pages."""
+    def get(self, author_nick):
+        author = models.blog.Author.get_by_key_name(author_nick)
+        if not author:
+            self.error(404)
+            view.ViewPage(cache_time=36000). \
+                 render(self, {'module_name': 'blog', 
+                               'handler_name': 'notfound'})
+        page = view.ViewPage()
+        page.render_query(
+            self, 'articles',
+            db.Query(models.blog.Article).filter('author =',        
+                                                 author).order('-published'), 
+                                                {'author': author})

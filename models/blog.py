@@ -20,6 +20,7 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 # DEALINGS IN THE SOFTWARE.
 
+import datetime
 import logging
 
 from google.appengine.api import memcache
@@ -29,11 +30,24 @@ import config
 import models
 from models import search
 
+
+class Author(models.MemcachedModel):
+    list_includes = ["nick"]
+    user = db.UserProperty(required=True)
+    name = db.TextProperty(required=True)
+    article_count = db.IntegerProperty(required=True, default=0)
+
+    @property
+    def nick(self):
+        return self.key().name()
+
+
 class Article(search.SearchableModel):
     unsearchable_properties = ['legacy_id', 'article_type', 
                                'excerpt', 'html', 'format']
-    json_does_not_include = ['assoc_dict']
+    json_does_not_include = ['assoc_dict', 'next_comment_id']
 
+    author = db.ReferenceProperty(Author)
     # Useful for aliasing of old urls
     legacy_id = db.StringProperty()
     title = db.StringProperty(required=True)
@@ -125,6 +139,12 @@ class Article(search.SearchableModel):
         """
         import re
         return re.sub('&(?!amp;)', '&amp;', self.html)
+    
+    def are_comments_allowed(self):
+        if self.allow_comments is not None:
+            return self.allow_comments
+        age = (datetime.datetime.now() - self.published).days
+        return age <= config.BLOG['days_can_comment']
 
 class Comment(models.SerializableModel):
     """Stores comments and their position in comment threads.

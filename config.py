@@ -16,9 +16,18 @@ BLOG = {
     "html_type": "text/html",
     "charset": "utf-8",
     "title": "Nick's Blog",
-    "author": "Nick Johnson",
+    # List authors here, in the form of email: (real name, nick). email address
+    # must match the one the user will sign in with, and nick will be the
+    # identifier used in URLs. It must not start with a number or underscore.
+    # Note that any change to an entry here will cause them to be treated as a
+    # new author entirely. Deleting an author who should no longer have access
+    # is fine, though.
+    "authors": {
+        "arachnid@notdot.net": ("Nick Johnson", "arachnid"),
+    },
     # This must be the email address of a registered administrator for the 
-    # application due to mail api restrictions.
+    # application due to mail api restrictions. Must match an email in the
+    # authors array above.
     "email": "arachnid@notdot.net",
     "description": "Because repeating myself sucks.",
     "root_url": "http://blog.notdot.net",

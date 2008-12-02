@@ -59,6 +59,7 @@ ROUTES = [
     ('/search', blog.SearchHandler),
     ('/contact/*$', contact.ContactHandler),
     ('/tag/(.*)', blog.TagHandler),
+    ('/author/(.*)', blog.AuthorHandler),
     (config.BLOG['master_atom_url'] + '/*$', blog.AtomHandler),
     ('/articles', blog.ArticlesHandler),
     ('/sitemap.xml$', blog.SitemapHandler),

@@ -122,11 +122,27 @@
                         </p>
                     </div>
                     {% endblock %}
+                    
+                    {% block authors %}
+                    {% if blog_authors %}
+                    <div class="middle_links">
+                        <h3>Authors</h3>
+                        <p class="authors">
+                        {% for author in blog_authors %}
+                            {% ifnotequal author.count 0 %}
+                            <a href="/author/{{ author.nick|urlencode }}">{{ author.name }}</a>
+                            ({{ author.article_count }})<br />
+                            {% endifnotequal %}
+                        {% endfor %}
+                        </p>
+                    </div>
+                    {% endif %}
+                    {% endblock %}
 
                     {% block extra_panel %}
                     {% endblock %}
 
-                    {% if user_is_admin %}
+                    {% if user_is_admin or user_is_author %}
                         <!-- Administrative Console -->
                         <div class="middle_links">
                             <h3>Administrative Panel</h3>
@@ -134,9 +150,11 @@
                                 <li><a id="newblog" href="#">New Blog Entry</a></li>
                                 <li><a id="newarticle" href="#">New Article</a>
                                     - unsyndicated<br />(e.g., about page)</li>
+                                {% if user_is_admin %}
                                 <li><a id="openshell" href="/admin/shell">Open Shell</a></li>
                                 <li><a href="/admin/cache_stats">Memcached Stats</a></li>
                                 <li><a href="/admin/timings">Timing Stats</a></li>
+                                {% endif %}
                             </ul>
                         </div>
                     {% endif %}
@@ -267,7 +285,7 @@
         <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/yahoo-dom-event/yahoo-dom-event.js"></script>
         <script type="text/javascript" src="/static/default/js/bloog_base.js"></script>
 
-        {% if user_is_admin %}
+        {% if user_is_admin or user_is_author %}
         {% include "form_editor.html" %}
         {% endif %}
 
