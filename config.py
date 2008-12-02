@@ -80,5 +80,33 @@ PAGE = {
     "featuredMyPages": {
     },
     "featuredOthersPages": {
+        "title": "Blogroll",
+        "description": "Some of the stuff I read",
+        "entries": [
+            { "title": "Bill Katz",
+              "url": "http://www.billkatz.com/",
+              "description": "The original author of Bloog."},
+            { "title": "Matteo Crippa",
+              "url": "http://matteocrippa.it/",
+              "description": "Another occasional bloog developer."},
+            { "title": "Coding Horror",
+              "url": "http://www.codinghorror.com/blog/",
+              "description": "Jeff Atwood's programming blog."},
+            { "title": "Craphound",
+              "url": "http://craphound.com/",
+              "description": "What's Cory Doctorow up to?"},
+            { "title": "Girl Genius",
+              "url": "http://www.girlgenius.net/",
+              "description": "Only the most awesome comic in existence."},
+            { "title": "Neopythonic",
+              "url": "http://neopythonic.blogspot.com/",
+              "description": "Guido on Python and everything else."},
+            { "title": "Pharyngula",
+              "url": "http://www.scienceblogs.com/pharyngula",
+              "description": "Biology and atheism."},
+            { "title": "Schneier on security",
+              "url": "http://www.schneier.com/blog/",
+              "description": "World famous cryptographer Bruce Schneier."},
+        ]
     },
 }
