@@ -68,6 +68,11 @@ BLOG = {
     # completeness and timeliness of the search, make sure you've submitted your
     # sitemap to Google (/sitemap.xml).
     "use_google_cse": True,
+    
+    # If you want to 'claim' your blog as your OpenID identity, put your OpenID
+    # server and URL here.
+    "openid_server": "https://myvidoop.com/openid",
+    "openid_delegate": "https://arachnid.myvidoop.com/",
 }
 
 PAGE = {
