@@ -102,6 +102,8 @@ def get_format(format_string):
 def process_tag(tag_name, tags):
     # Check tag_name against all 'name' values in tags and coerce
     tag_name = tag_name.strip()
+    if not isinstance(tag_name, unicode):
+       tag_name = tag_name.decode(config.BLOG["charset"])
     lowercase_name = tag_name.lower()
     for tag in tags:
         if lowercase_name == tag['name'].lower():
@@ -114,7 +116,7 @@ def get_tags(tags_string):
         from models.blog import Tag
         tags = Tag.list()
         logging.debug("  tags = %s", tags)
-        return [process_tag(s, tags) 
+        return [process_tag(s, tags)
                 for s in tags_string.split(",") if s != '']
     return None
     
@@ -162,7 +164,10 @@ def process_article_edit(handler, permalink):
     body = handler.request.body
     params = cgi.parse_qs(body)
     for key,value in params.iteritems():
-        params[key] = value[0]
+        value0 = value[0]
+        if not isinstance(value0, unicode):
+            value0 = value0.decode(config.BLOG["charset"])
+        params[key] = value0
     property_hash = restful.get_sent_properties(params.get,
         ['title',
          ('body', get_sanitizer_func(handler, trusted_source=True)),
@@ -329,7 +334,7 @@ def render_article(handler, article):
         try:
             accept_list = handler.request.headers['Accept']
         except KeyError:
-            logging.error("Had no accept header: %s", handler.request.headers)
+            logging.info("Had no accept header: %s", handler.request.headers)
             accept_list = None
         if accept_list and accept_list.split(',')[0] == 'application/json':
             handler.response.headers['Content-Type'] = 'application/json'
@@ -519,9 +524,7 @@ class BlogEntryHandler(restful.Controller):
 
 class TagHandler(restful.Controller):
     def get(self, encoded_tag):
-        tag =  re.sub('(%25|%)(\d\d)', 
-                      lambda cmatch: chr(string.atoi(cmatch.group(2), 16)),                 
-                      encoded_tag)   # No urllib.unquote in AppEngine?
+        tag = unicode(urllib.unquote(encoded_tag), config.BLOG["charset"])
         page = view.ViewPage()
         page.render_query(
             self, 'articles', 
