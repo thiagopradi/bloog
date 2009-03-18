@@ -1,1 +1,7 @@
 {% extends "base.html" %}
+{% block head %}
+  {% if blog.openid_server %}
+    <link rel="openid.server" href="{{blog.openid_server}}" />
+    <link rel="openid.delegate" href="{{blog.openid_delegate}}" />
+  {% endif %}
+{% endblock %}
