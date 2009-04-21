@@ -48,4 +48,5 @@ redirects = {
     'feeds/index.rss2': 'http://blog.notdot.net/feeds/atom.xml',
     'feeds/atom10.xml': 'http://blog.notdot.net/feeds/atom.xml',
     'atom.xml': 'http://blog.notdot.net/feeds/atom.xml',
+	'Announcing-BDBDatastore-a-replacement-datastore-for-App-Engine': 'http://blog.notdot.net/2009/04/Announcing-BDBDatastore-a-replacement-datastore-for-App-Engine',
 }
